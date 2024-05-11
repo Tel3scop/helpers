@@ -11,7 +11,7 @@ import (
 )
 
 // InitByParams создать глобальный логгер по параметрам, maxSize - в Mb, maxBackups, maxAge - в днях
-func InitByParams(fileName, level string, maxSize, maxBackups, maxAge int, compress bool) {
+func InitByParams(fileName, level string, maxSize, maxBackups, maxAge int, compress, stdOut bool) {
 	loggerConfig := lumberjack.Logger{
 		Filename:   fileName,
 		MaxSize:    maxSize,    // megabytes
@@ -19,15 +19,18 @@ func InitByParams(fileName, level string, maxSize, maxBackups, maxAge int, compr
 		MaxBackups: maxAge,
 		Compress:   compress,
 	}
-	Init(getCore(getAtomicLevel(level), &loggerConfig))
+	Init(getCore(getAtomicLevel(level), &loggerConfig, stdOut))
 }
 
 func Init(core zapcore.Core, options ...zap.Option) {
 	globalLogger = zap.New(core, options...)
 }
 
-func getCore(level zap.AtomicLevel, loggerConfig *lumberjack.Logger) zapcore.Core {
-	stdout := zapcore.AddSync(os.Stdout)
+func getCore(level zap.AtomicLevel, loggerConfig *lumberjack.Logger, stdOut bool) zapcore.Core {
+	var stdOutThread zapcore.WriteSyncer
+	if stdOut {
+		stdOutThread = zapcore.AddSync(os.Stdout)
+	}
 
 	file := zapcore.AddSync(loggerConfig)
 
@@ -41,8 +44,14 @@ func getCore(level zap.AtomicLevel, loggerConfig *lumberjack.Logger) zapcore.Cor
 	consoleEncoder := zapcore.NewConsoleEncoder(developmentCfg)
 	fileEncoder := zapcore.NewJSONEncoder(productionCfg)
 
+	if stdOut {
+		return zapcore.NewTee(
+			zapcore.NewCore(consoleEncoder, stdOutThread, level),
+			zapcore.NewCore(fileEncoder, file, level),
+		)
+	}
+
 	return zapcore.NewTee(
-		zapcore.NewCore(consoleEncoder, stdout, level),
 		zapcore.NewCore(fileEncoder, file, level),
 	)
 }
