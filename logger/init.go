@@ -10,16 +10,27 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// InitByParams создать глобальный логгер по параметрам, maxSize - в Mb, maxBackups, maxAge - в днях
-func InitByParams(fileName, level string, maxSize, maxBackups, maxAge int, compress, stdOut bool) {
+// Config  maxSize - в Mb, maxBackups, maxAge - в днях
+type Config struct {
+	Filename   string
+	Level      string
+	MaxSize    int
+	MaxBackups int
+	MaxAge     int
+	Compress   bool
+	StdOut     bool
+}
+
+// InitByParams создать глобальный логгер по параметрам конфига Config
+func InitByParams(config Config) {
 	loggerConfig := lumberjack.Logger{
-		Filename:   fileName,
-		MaxSize:    maxSize,    // megabytes
-		MaxAge:     maxBackups, // days
-		MaxBackups: maxAge,
-		Compress:   compress,
+		Filename:   config.Filename,
+		MaxSize:    config.MaxSize, // megabytes
+		MaxAge:     config.MaxAge,  // days
+		MaxBackups: config.MaxBackups,
+		Compress:   config.Compress,
 	}
-	Init(getCore(getAtomicLevel(level), &loggerConfig, stdOut))
+	Init(getCore(getAtomicLevel(config.Level), &loggerConfig, config.StdOut))
 }
 
 func Init(core zapcore.Core, options ...zap.Option) {
